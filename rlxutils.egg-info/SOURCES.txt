@@ -1,0 +1,12 @@
+MANIFEST.in
+setup.py
+rlxutils/__init__.py
+rlxutils/optimization.py
+rlxutils/rlxutils.py
+rlxutils/version.py
+rlxutils.egg-info/PKG-INFO
+rlxutils.egg-info/SOURCES.txt
+rlxutils.egg-info/dependency_links.txt
+rlxutils.egg-info/not-zip-safe
+rlxutils.egg-info/requires.txt
+rlxutils.egg-info/top_level.txt

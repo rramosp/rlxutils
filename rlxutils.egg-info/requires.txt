@@ -1,0 +1,9 @@
+matplotlib
+numpy
+pandas
+joblib
+progressbar2
+psutil
+bokeh
+pyshp
+statsmodels
