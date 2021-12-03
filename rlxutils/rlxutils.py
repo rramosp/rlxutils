@@ -103,7 +103,7 @@ def md5hash(s):
     m.update(bytes(s, "utf-8"))
     return m.hexdigest()
 
-def command(cmd):
+def command(cmd, print_out = False):
     """
     Runs a command in the underlying shell
 
@@ -112,6 +112,9 @@ def command(cmd):
 
     cmd : str
         string containing the command to run
+
+    print_out : bool
+        if True prints out stdout and stderr after capturing it
 
     Returns:
     --------
@@ -125,24 +128,56 @@ def command(cmd):
         captured standard error from the command
 
     """
-    try:
-        # search for single quoted args (just one such arg is accepted)
-        init = cmd.find("'")
-        end  = len(cmd)-cmd[::-1].find("'")
-        if init>0 and init!=end-1:
-            scmd = cmd[:init].split() + [cmd[init+1:end-1]] + cmd[end+1:].split()
-        else:
-            scmd = cmd.split()
+    import sys
+    from subprocess import PIPE, Popen
+    from threading  import Thread
+    from queue import Queue, Empty
+    from time import sleep
+    
+    # search for single quoted args (just one such arg is accepted)
+    init = cmd.find("'")
+    end  = len(cmd)-cmd[::-1].find("'")
+    if init>0 and init!=end-1:
+        scmd = cmd[:init].split() + [cmd[init+1:end-1]] + cmd[end+1:].split()
+    else:
+        scmd = cmd.split()
 
-        p = subprocess.Popen(scmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout,stderr = p.communicate()
-        code = p.returncode
-    except Exception as e:
-        stderr = str(e)
-        code = 127
-        stdout = ""
+    ON_POSIX = 'posix' in sys.builtin_module_names
+    
+    def enqueue_stdout(out, queue):
+        for line in iter(out.readline, b''):
+            line = str(line.decode()).strip()
+            if print_out:
+                print (line, flush=True)
+            queue.put(line)
+        out.close()
 
-    stdout = stdout.decode() if type(stdout)==bytes else stdout
-    stderr = stderr.decode() if type(stderr)==bytes else stderr
+    def enqueue_stderr(out, queue):
+        for line in iter(out.readline, b''):
+            line = str(line.decode()).strip()
+            if print_out:
+                print (line, file=sys.stderr, flush=True)
+            queue.put(line)
+        out.close()    
 
-    return code, stdout, stderr
+    p = Popen(scmd, stdout=PIPE, stderr=PIPE, close_fds=ON_POSIX)
+    
+    qout = Queue()
+    tout = Thread(target=enqueue_stdout, args=(p.stdout, qout))
+    tout.daemon = True # thread dies with the program
+    tout.start()
+
+    qerr = Queue()
+    terr = Thread(target=enqueue_stderr, args=(p.stderr, qerr))
+    terr.daemon = True # thread dies with the program
+    terr.start()
+
+    p.wait()
+
+    while tout.is_alive() or terr.is_alive():
+        sleep(.1)
+    
+    strout = "\n".join([qout.get() for _ in range(qout.qsize())])
+    strerr = "\n".join([qerr.get() for _ in range(qerr.qsize())])
+
+    return p.returncode, strout, strerr
