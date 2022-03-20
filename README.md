@@ -6,7 +6,5 @@ various utility functions
 - easy `matplotlib` grid of subplots
 - measuring elapsed times of code fragments
 - easy execution of shell commands
+- and more
 
-
-
-     pip install git+https://github.com/rramosp/rlxutils

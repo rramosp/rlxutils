@@ -143,19 +143,14 @@ def command(cmd, print_out = False):
 
     """
     import sys
+    import shlex
     from subprocess import PIPE, Popen
     from threading  import Thread
     from queue import Queue, Empty
     from time import sleep
-    
-    # search for single quoted args (just one such arg is accepted)
-    init = cmd.find("'")
-    end  = len(cmd)-cmd[::-1].find("'")
-    if init>0 and init!=end-1:
-        scmd = cmd[:init].split() + [cmd[init+1:end-1]] + cmd[end+1:].split()
-    else:
-        scmd = cmd.split()
 
+    scmd = shlex.split(cmd)
+    
     ON_POSIX = 'posix' in sys.builtin_module_names
     
     def enqueue_stdout(out, queue):
