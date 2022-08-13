@@ -5,6 +5,12 @@ import numpy as np
 from time import time
 import types
 import functools
+import sys
+import shlex
+from subprocess import PIPE, Popen
+from threading  import Thread
+from time import sleep
+
 
 def copy_func(f):
     """
@@ -58,6 +64,8 @@ def subplots(elems, n_cols=None, usizex=3, usizey=3 ):
     for i in range(n_elems):
         ax = fig.add_subplot(n_rows, n_cols, i+1)
         yield ax, elems[i]
+
+    plt.tight_layout()
 
 class ElapsedTimes:
     """
@@ -117,9 +125,108 @@ def md5hash(s):
     m.update(bytes(s, "utf-8"))
     return m.hexdigest()
 
+class Command:
+    
+    def __init__(self, cmd, print_out = False):
+        """
+        Runs a command in the underlying shell
+
+        Parameters:
+        -----------
+
+        cmd : str
+            string containing the command to run
+
+        print_out : bool
+            if True prints out stdout and stderr after capturing it     
+            
+            
+        typical usage:
+        
+            # wait for command completion
+            c = Command("ls -las").run().wait()
+            print (c.stdout())
+            print (c.stderr())
+            
+            # run in background
+            c = Command("ls -las").run().wait()
+            # at any time get stdout or stderr
+            print (c.stdout())
+            # at any time check if finished
+            if c.isfinished():
+                print ("finished")
+            
+        """
+        self.cmd = cmd
+        self.print_out = print_out
+        
+        self._stdout = []
+        self._stderr = []
+        
+    def stdout(self):
+        return "\n".join(self._stdout)
+        
+    def stderr(self):
+        return "\n".join(self._stderr)
+        
+    def exitcode(self):
+        return self.p.poll()
+    
+    def isrunning(self):
+        return self.p.poll() is None    
+
+    def isfinished(self):
+        return not self.isrunning()        
+    
+    def wait(self):
+        """
+        waits until process is finished
+        """
+        self.p.wait()
+        while self.tout.is_alive() or self.terr.is_alive():
+            sleep(.1)
+        return self
+        
+    def append_stdout(self):
+        for line in iter(self.p.stdout.readline, b''):
+            line = str(line.decode()).strip()
+            self._stdout.append(line)
+            if self.print_out:
+                print (line, flush=True)
+        self.p.stdout.close()    
+
+    def append_stderr(self):
+        for line in iter(self.p.stderr.readline, b''):
+            line = str(line.decode()).strip()
+            self._stderr.append(line)
+            if self.print_out:
+                print (line, file=sys.stderr, flush=True)
+        self.p.stderr.close()    
+        
+    def run(self):
+        """
+        executes the process
+        """
+        scmd = shlex.split(self.cmd)
+
+        ON_POSIX = 'posix' in sys.builtin_module_names
+
+        self.p = Popen(scmd, stdout=PIPE, stderr=PIPE, close_fds=ON_POSIX)
+
+        self.tout = Thread(target=self.append_stdout, args=())
+        self.tout.daemon = True # thread dies with the program
+        self.tout.start()
+
+        self.terr = Thread(target=self.append_stderr, args=())
+        self.terr.daemon = True # thread dies with the program
+        self.terr.start()
+
+        return self
+
+
 def command(cmd, print_out = False):
     """
-    Runs a command in the underlying shell
+    Runs a command in the underlying shell. Will be deprecated.
 
     Parameters:
     -----------
@@ -148,6 +255,8 @@ def command(cmd, print_out = False):
     from threading  import Thread
     from queue import Queue, Empty
     from time import sleep
+
+    warn("This function is deprecated. Use the class Command instead", stacklevel=2)
 
     scmd = shlex.split(cmd)
     
@@ -190,3 +299,16 @@ def command(cmd, print_out = False):
     strerr = "\n".join([qerr.get() for _ in range(qerr.qsize())])
 
     return p.returncode, strout, strerr
+
+
+
+def qplot(x, pctles_clip=5, **kwargs):
+    """
+    makes a percentiles vs quantiles plot
+    pctles_clip: if 5, will take percentiles from 5 to 95 in increments of 1%
+    """
+    pctls = np.linspace(0,100,101)[pctles_clip:-pctles_clip]
+    qntls = np.percentile(x, pctls)
+    plt.plot(pctls, qntls, **kwargs)
+    plt.xlabel("percentiles")
+    plt.ylabel("values")
