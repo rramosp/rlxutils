@@ -178,13 +178,22 @@ class Command:
     def isfinished(self):
         return not self.isrunning()        
     
-    def wait(self):
+    def wait(self, raise_exception_on_error=False):
         """
         waits until process is finished
         """
         self.p.wait()
         while self.tout.is_alive() or self.terr.is_alive():
             sleep(.1)
+
+        if raise_exception_on_error and self.exitcode()!=0:
+            msg = f"""command failed with exit code {self.exitcode()}
+--- stdout ---
+{self.stdout()}
+--- stderr ---
+{self.stderr()}
+            """
+            raise ValueError(msg)
         return self
         
     def append_stdout(self):
