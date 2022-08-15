@@ -127,7 +127,7 @@ def md5hash(s):
 
 class Command:
     
-    def __init__(self, cmd, print_out = False):
+    def __init__(self, cmd, cwd = None, print_out = False):
         """
         Runs a command in the underlying shell
 
@@ -136,6 +136,9 @@ class Command:
 
         cmd : str
             string containing the command to run
+
+        cwd: str
+            the working directory where the command is executed
 
         print_out : bool
             if True prints out stdout and stderr after capturing it     
@@ -158,6 +161,7 @@ class Command:
             
         """
         self.cmd = cmd
+        self.cwd = cwd
         self.print_out = print_out
         
         self._stdout = []
@@ -216,11 +220,16 @@ class Command:
         """
         executes the process
         """
-        scmd = shlex.split(self.cmd)
+        if isinstance(self.cmd, str):
+           scmd = shlex.split(self.cmd)
+        elif isinstance(self.cmd, list):
+           scmd = self.cmd
+        else:
+           raise ValueError("cmd must be list or str")
 
         ON_POSIX = 'posix' in sys.builtin_module_names
 
-        self.p = Popen(scmd, stdout=PIPE, stderr=PIPE, close_fds=ON_POSIX)
+        self.p = Popen(scmd, cwd=self.cwd, stdout=PIPE, stderr=PIPE, close_fds=ON_POSIX)
 
         self.tout = Thread(target=self.append_stdout, args=())
         self.tout.daemon = True # thread dies with the program
