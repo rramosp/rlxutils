@@ -34,7 +34,7 @@ class mParallel(Parallel):
             sys.stdout.write('\r ' + fmsg)
             sys.stdout.flush()
 
-def subplots(elems, n_cols=None, usizex=3, usizey=3 ):
+def subplots(elems, n_cols=None, usizex=3, usizey=3, **ax_kwargs ):
     """
     generates grid with a subplot for each elem in elems. for instance:
 
@@ -48,6 +48,7 @@ def subplots(elems, n_cols=None, usizex=3, usizey=3 ):
     elems: an iterable, or an integer 
     n_cols: the number of columns for the grid. If none it is set to min(num elems, 15)
     usizex, usizey: size of each subplot
+    ax_kwargs: args to pass to axis creation (such as projection, etc.)
     """
     
     if type(elems)==int:
@@ -62,7 +63,7 @@ def subplots(elems, n_cols=None, usizex=3, usizey=3 ):
     fig = plt.figure(figsize=(n_cols*usizex, n_rows*usizey))
     
     for i in range(n_elems):
-        ax = fig.add_subplot(n_rows, n_cols, i+1)
+        ax = fig.add_subplot(n_rows, n_cols, i+1, **ax_kwargs)
         yield ax, elems[i]
 
     plt.tight_layout()
